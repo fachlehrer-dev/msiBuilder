@@ -1,9 +1,9 @@
-# msiBuilder 1.11.0
+# msiBuilder 1.11.2
 
 A modern Windows GUI for creating MSI installers from EXE files with WiX, including reopenable project files, stable UpgradeCodes for future updates, and automatic prerequisite checks.
 
 
-## New in 1.11.0
+## New in 1.11.2
 
 ### File type associations
 
@@ -81,3 +81,8 @@ msiBuilder is MIT licensed. WiX is an external dependency with its own license a
 Optional prefix/suffix fields can be added to the generated MSI file name. msiBuilder inserts `_` separators automatically and shows a live preview, e.g. `Setup_MyApp-1.0.0_x64.msi`. These values are stored in the `.wix` project file.
 
 For file associations, users enter only the extension and description. The Windows **ProgID is generated automatically**; it is not the file extension itself.
+
+
+## Opening project files directly
+
+If `.wix` project files are associated with msiBuilder in Windows, double-clicking a project opens it directly and restores all saved project settings.

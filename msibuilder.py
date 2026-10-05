@@ -4,6 +4,7 @@ import queue
 import re
 import shutil
 import subprocess
+import sys
 import threading
 import tempfile
 import uuid
@@ -14,7 +15,7 @@ import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 
 APP_NAME = "msiBuilder"
-APP_VERSION = "1.11.0"
+APP_VERSION = "1.11.2"
 APP_DEVELOPER = "Fachlehrer-DEV"
 PROJECT_GITHUB_URL = "https://github.com/fachlehrer-dev/msiBuilder"
 PROJECT_INFO_URL = "https://fachlehrer.dev/msiBuilder"
@@ -89,7 +90,10 @@ TRANSLATIONS = {
         "subtitle": "EXE auswählen · MSI mit WiX bauen · Softwareverteilung vorbereiten",
         "info": "Info", "recheck": "Neu prüfen", "ready": "Bereit für MSI-Build und Softwareverteilung.",
         "build_msi": "MSI erstellen", "build_msi_now": "MSI jetzt erstellen", "open_output": "Projektordner öffnen",
-        "tab_project": "Projekt", "tab_deploy": "Verteilung", "tab_log": "Build-Log",
+        "tab_project": "Projekt", "tab_filetypes": "Dateitypen", "tab_deploy": "Verteilung", "tab_log": "Build-Log",
+        "filetypes_title": "Dateizuordnungen", "filetypes_help": "Eine oder mehrere Dateiendungen für die installierte Anwendung registrieren. Windows führt die Anwendung anschließend unter Öffnen mit / Standard-Apps auf. Bereits vom Benutzer gesetzte Standardprogramme können unter Windows 10/11 nicht still überschrieben werden.",
+        "filetype_extension": "Dateiendung", "filetype_description": "Beschreibung", "filetype_add": "Hinzufügen / aktualisieren", "filetype_remove": "Auswahl entfernen", "filetype_example": "Beispiele: .csv, .md, .meinedatei", "filetype_target": "Dateien werden mit der installierten Anwendung geöffnet und als erstes Argument (\"%1\") übergeben.",
+        "filetype_invalid": "Bitte eine gültige Dateiendung eingeben, zum Beispiel .csv.", "filetype_default_desc": "{ext}-Datei",
         "source_output": "Quelldatei & Ausgabe", "program_exe": "Programm-EXE", "output_folder": "Ausgabeordner", "keep_source": "Quelldateien und Build-Daten im Ordner source speichern",
         "browse": "Auswählen…", "product_data": "Produktdaten", "product_name": "Produktname", "manufacturer": "Hersteller",
         "version": "Version", "architecture": "Architektur", "installer_options": "Installer-Optionen",
@@ -407,7 +411,11 @@ class App(tk.Tk):
         self._sdk_warning_shown = False; self._wix_question_shown = False; self._installing_wix = False; self._testing_wix = False; self._pending_build = False; self._building = False
         self.wix_custom = False; self.wix_loaded_path = None; self._ignore_wix_modified = False
         self._init_vars(); self._build_ui(); self._bind_shortcuts()
-        self.after(150, self._poll_messages); self.after(700, lambda: self.refresh_environment(interactive=True))
+        self.after(150, self._poll_messages)
+        # Windows file associations pass the selected .wix file as argv[1].
+        # Load it after the complete UI exists so every project field can be restored.
+        self.after(250, self._open_startup_project)
+        self.after(700, lambda: self.refresh_environment(interactive=True))
 
 
     def _apply_app_icon(self, window):
@@ -787,10 +795,25 @@ class App(tk.Tk):
         path.write_text(json.dumps(self._project_data(source_relative),ensure_ascii=False,indent=2),encoding='utf-8')
         return path
 
-    def open_project(self):
-        chosen=filedialog.askopenfilename(title=self.t('open_project'),filetypes=[(self.t('project_files'),'*.wix'),(self.t('all_files'),'*.*')])
-        if not chosen: return
-        path=Path(chosen)
+    def _open_startup_project(self):
+        """Open a .wix project passed by Windows/file association on application start."""
+        if len(sys.argv) < 2:
+            return
+        candidate = str(sys.argv[1]).strip().strip('\"')
+        if not candidate:
+            return
+        path = Path(candidate).expanduser()
+        if path.suffix.lower() != '.wix' or not path.is_file():
+            return
+        self.open_project(path, show_success=False)
+
+    def open_project(self, path=None, show_success=True):
+        if path is None:
+            chosen=filedialog.askopenfilename(title=self.t('open_project'),filetypes=[(self.t('project_files'),'*.wix'),(self.t('all_files'),'*.*')])
+            if not chosen: return
+            path=Path(chosen)
+        else:
+            path=Path(path)
         try:
             data=json.loads(path.read_text(encoding='utf-8'))
             if data.get('format')!='msiBuilder-project': raise ValueError(self.t('project_invalid'))
@@ -814,7 +837,8 @@ class App(tk.Tk):
             else:
                 self.regenerate_wix_code(mark_custom=False)
             self.update_command_preview()
-            messagebox.showinfo(APP_NAME,self.t('project_loaded'),parent=self)
+            if show_success:
+                messagebox.showinfo(APP_NAME,self.t('project_loaded'),parent=self)
         except Exception as exc:
             messagebox.showerror(APP_NAME,self.t('project_load_failed',error=str(exc)),parent=self)
 

@@ -1,9 +1,9 @@
-# msiBuilder 1.11.0
+# msiBuilder 1.11.2
 
 Eine moderne Windows-Oberfläche zum Erstellen von MSI-Installern aus EXE-Dateien mit WiX – inklusive wiederöffnbarer Projektdatei, Update-festem UpgradeCode und automatischer Prüfung der Voraussetzungen.
 
 
-## Neu in 1.11.0
+## Neu in 1.11.2
 
 ### Dateitypen mit der installierten Anwendung verknüpfen
 
@@ -124,3 +124,8 @@ Präfix und Suffix werden zusammen mit dem Projekt in der `.wix`-Datei gespeiche
 ### Dateizuordnungen und ProgID
 
 Bei Dateizuordnungen gibt der Benutzer nur die Dateiendung (z. B. `.csv`) und eine Beschreibung an. Die **ProgID ist nicht die Dateiendung**, sondern eine technische Windows-Kennung für den registrierten Dateityp. msiBuilder erzeugt diese automatisch und stabil aus Produktname, Endung und Projektkennung.
+
+
+## Projektdateien direkt öffnen
+
+Wenn `.wix`-Projektdateien in Windows mit msiBuilder verknüpft sind, öffnet ein Doppelklick die Datei direkt im msiBuilder und stellt alle gespeicherten Projekteinstellungen wieder her.
