@@ -1,83 +1,33 @@
-# msiBuilder
+# msiBuilder 1.11.0
 
-> **A modern Windows GUI for building MSI installers from EXE files using WiX, with silent deployment options and automatic prerequisite checks.**
+A modern Windows GUI for creating MSI installers from EXE files with WiX, including reopenable project files, stable UpgradeCodes for future updates, and automatic prerequisite checks.
 
-**[Ausführliches deutsches Handbuch / Full German documentation](README_DE.md)**
 
----
+## New in 1.11.0
 
-## What is msiBuilder?
+### File type associations
 
-**msiBuilder** is a Windows desktop application that turns an existing application EXE into an **MSI installer** using the WiX Toolset – without requiring users to write WiX XML or assemble build commands manually.
+The new **File types** tab lets you register one or more extensions for the installed EXE, for example `.csv`, `.md` or a custom format. msiBuilder generates the required WiX `ProgId` / `Extension` entries, registers the application for **Open with** and Windows **Default apps**, and passes the selected file to the EXE as `"%1"`. Associations are stored in the `.wix` project file.
 
-It is designed for developers, administrators, schools, small IT departments and anyone who needs clean MSI packages for manual installation, updates or centralized software deployment.
+> **Windows 10/11 note:** Installers are not allowed to silently replace an existing per-user default application. msiBuilder registers the application as a supported handler; if another default is already selected, Windows requires the user to confirm the new default through system UI.
 
-The basic workflow is intentionally simple:
+## New in 1.9.2
 
-> **Choose EXE → configure project → click “Build MSI now” → done.**
+- Scrollbars are now only shown when the content actually requires scrolling.
+- The “WiX source code” heading now blends into the tab background instead of appearing on a white label.
 
----
+## New in 1.9.0
 
-## Features
+- The output folder normally contains only the finished **MSI** and an reopenable **`.wix` msiBuilder project file**.
+- The project file stores all important settings including the persistent **UpgradeCode**.
+- Optional source archiving creates a `source` folder containing the EXE, `installer.wxs`, `install.cmd`, and `uninstall.cmd`.
+- WiX `.wixpdb` debug output is removed after a successful normal build.
+- Intermediate build files are created in a temporary directory and removed automatically.
+- The extra top spacing before **Source file & output** on the Project tab has been removed.
 
-- Build MSI installers from Windows EXE files
-- Modern graphical Windows interface
-- Reopenable `.wix` msiBuilder project files
-- Persistent **UpgradeCode** for future product updates
-- x86 / x64 target architecture selection
-- Start menu and desktop shortcut options
-- Automatic WiX source generation
-- Built-in WiX source editor with `.wxs` import/export
-- Silent deployment presets for `msiexec`
-- `/qn`, `/quiet`, `/passive`, `/qb` and normal UI modes
-- `/norestart` and verbose MSI logging support
-- Ready-to-copy deployment commands for GPO, Intune, RMM and scripts
-- Automatic .NET SDK version check
-- Automatic WiX detection and optional installation
-- Real WiX test build after installation
-- WiX EULA handling when required
-- Optional `source` archive with EXE and build files
-- Temporary build artifacts are cleaned automatically
-- One-file Windows EXE build script included
+## Output layout
 
----
-
-## Quick start
-
-1. Start `msiBuilder.exe`.
-2. Select the application EXE on the **Project** tab.
-3. Choose an output folder.
-4. Enter product name, manufacturer and version.
-5. Select architecture and shortcut options.
-6. Click **Build MSI now** or press `F5`.
-
-msiBuilder checks the required tooling in the background. If WiX is missing, the application can guide the user through installation and performs a real test MSI build afterwards.
-
----
-
-## Requirements
-
-For MSI creation, msiBuilder expects:
-
-- Windows
-- **.NET SDK 6.0 or newer**
-- WiX Toolset
-
-WiX is an external dependency and is not bundled with msiBuilder.
-
-If WiX is not installed, msiBuilder can invoke:
-
-```cmd
-dotnet tool install --global wix
-```
-
-Afterwards, msiBuilder builds a temporary test MSI to verify that WiX is actually usable and that any required WiX EULA acceptance has been completed.
-
----
-
-## Project files
-
-A normal output folder stays intentionally clean:
+Default:
 
 ```text
 Output\
@@ -85,13 +35,7 @@ Output\
 └── MyApplication.wix
 ```
 
-The `.wix` file is an **msiBuilder project file**, not WiX XML. It stores the settings required to reopen and continue the project later, including the persistent UpgradeCode.
-
-WiX XML source continues to use the `.wxs` extension.
-
-### Optional source archive
-
-When **Save source and build data in the source folder** is enabled:
+With source archiving enabled:
 
 ```text
 Output\
@@ -104,86 +48,36 @@ Output\
     └── uninstall.cmd
 ```
 
-This makes it possible to archive the complete build input together with the project.
+The `.wix` file is an msiBuilder project file, not WiX XML. It stores product metadata, architecture, UpgradeCode, source location, shortcut settings, deployment settings, and optional custom WiX source.
 
----
+## Shortcuts
 
-## Updating an existing application
+- **Ctrl+O** – choose application EXE
+- **Ctrl+L** – open `.wix` msiBuilder project
+- **Ctrl+S** – save `.wix` msiBuilder project
+- **Ctrl+Shift+O** – open output folder
+- **F5** – build MSI
+- **F6** – check prerequisites
+- **F1** – About
 
-For a new version of the same product:
+WiX `.wxs` source can still be imported/exported separately from the File menu.
 
-1. reopen the existing `.wix` project,
-2. update the EXE,
-3. increase the product version,
-4. **keep the UpgradeCode unchanged**,
-5. build the new MSI.
+## Requirements
 
-The UpgradeCode identifies the product family and is therefore stored permanently in the msiBuilder project file.
+msiBuilder requires a compatible **.NET SDK 6.0+** and WiX to build MSI packages. After WiX installation it performs an actual temporary test build, including the WiX 7 EULA check where applicable.
 
----
+## Building msiBuilder
 
-## Deployment
-
-The **Deployment** tab generates ready-to-use `msiexec` commands for automated rollout.
-
-Example:
-
-```cmd
-msiexec /i "MyApplication-1.0.0.msi" /qn /norestart /L*V "MyApplication-install.log"
-```
-
-This is useful for environments such as:
-
-- Microsoft Intune
-- Group Policy / GPO
-- RMM systems
-- software deployment platforms
-- batch or PowerShell scripts
-
----
-
-## Keyboard shortcuts
-
-| Shortcut | Action |
-|---|---|
-| `Ctrl+O` | Select application EXE |
-| `Ctrl+L` | Open msiBuilder project (`.wix`) |
-| `Ctrl+S` | Save project |
-| `Ctrl+Shift+O` | Open output folder |
-| `F5` | Build MSI now |
-| `F6` | Check prerequisites |
-| `F1` | About msiBuilder |
-
----
-
-## Build msiBuilder from source
-
-Run:
-
-```cmd
-build_onefile.bat
-```
-
-The script installs/updates PyInstaller and creates:
-
-```text
-dist\msiBuilder.exe
-```
-
-The application icon is embedded in the executable. End users of the built EXE do not need Python installed.
-
----
+Run `build_onefile.bat` to create `dist\msiBuilder.exe` with the integrated application icon.
 
 ## License
 
-msiBuilder is released under the **MIT License**.
+msiBuilder is MIT licensed. WiX is an external dependency with its own license and usage terms.
 
-WiX is an external project and is subject to its own license, EULA and usage terms.
+- Layout: The top spacing of the “Source file & output” card now matches the left and right tab padding.
 
----
+### Custom MSI file names
 
-## Documentation
+Optional prefix/suffix fields can be added to the generated MSI file name. msiBuilder inserts `_` separators automatically and shows a live preview, e.g. `Setup_MyApp-1.0.0_x64.msi`. These values are stored in the `.wix` project file.
 
-For the complete guide, detailed update workflow, prerequisite explanation, deployment options and troubleshooting, see:
-
-### **[README_DE.md – Deutsches Handbuch](README_DE.md)**
+For file associations, users enter only the extension and description. The Windows **ProgID is generated automatically**; it is not the file extension itself.

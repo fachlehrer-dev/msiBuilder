@@ -1,184 +1,39 @@
-# msiBuilder
+# msiBuilder 1.11.0
 
-> **Moderne Windows-GUI zum Erstellen von MSI-Installern aus EXE-Dateien mit WiX – inklusive Silent-Deployment, wiederöffnbaren Projekten und automatischer Prüfung der Voraussetzungen.**
+Eine moderne Windows-Oberfläche zum Erstellen von MSI-Installern aus EXE-Dateien mit WiX – inklusive wiederöffnbarer Projektdatei, Update-festem UpgradeCode und automatischer Prüfung der Voraussetzungen.
 
-[English version](README.md)
 
----
+## Neu in 1.11.0
 
-## Was ist msiBuilder?
+### Dateitypen mit der installierten Anwendung verknüpfen
 
-**msiBuilder** ist eine grafische Windows-Anwendung, mit der sich aus einer vorhandenen Windows-EXE ein sauberer **MSI-Installer** erstellen lässt – ohne WiX-Dateien von Hand schreiben oder lange Kommandozeilenbefehle zusammensetzen zu müssen.
+Im neuen Reiter **Dateitypen** können eine oder mehrere Dateiendungen hinterlegt werden, die von der installierten EXE geöffnet werden sollen, zum Beispiel:
 
-Die Anwendung richtet sich an Administratoren, Entwickler, Schulen, kleine IT-Abteilungen und alle, die Programme als MSI paketieren oder zentral verteilen möchten.
+- `.csv` – CSV-Datei
+- `.md` – Markdown-Datei
+- `.myfile` – eigenes Dateiformat
 
-msiBuilder übernimmt dabei nicht nur den eigentlichen Build, sondern unterstützt den gesamten Ablauf:
+msiBuilder erzeugt dafür automatisch die erforderlichen WiX-`ProgId`-/`Extension`-Einträge, registriert die Anwendung unter **Öffnen mit** und in den Windows-**Standard-Apps** und übergibt die geöffnete Datei als `"%1"` an die EXE. Die Dateitypen werden in der `.wix`-Projektdatei gespeichert und beim erneuten Öffnen des Projekts wiederhergestellt.
 
-- EXE auswählen
-- Produktdaten und Installationsoptionen festlegen
-- UpgradeCode für spätere Updates verwalten
-- Startmenü- und Desktop-Verknüpfungen konfigurieren
-- Silent-Deployment-Befehle erzeugen
-- WiX-Quellcode automatisch erzeugen und bei Bedarf bearbeiten
-- .NET SDK und WiX automatisch prüfen
-- WiX bei Bedarf installieren und anschließend mit einem echten Test-Build verifizieren
-- Projekte als `.wix` speichern und später wieder vollständig öffnen
+> **Wichtig für Windows 10/11:** Ein Installer darf bestehende benutzerspezifische Standardprogramme nicht still überschreiben. msiBuilder registriert die Anwendung korrekt als verfügbaren Handler. Falls bereits ein anderes Standardprogramm gesetzt ist, muss der Benutzer die Auswahl einmal über **Öffnen mit** bzw. **Einstellungen → Apps → Standard-Apps** bestätigen.
 
-Das Ziel ist bewusst einfach:
+## Neu in 1.9.2
 
-> **EXE auswählen → Einstellungen festlegen → „MSI jetzt erstellen“ → fertig.**
+- Scrollleisten werden nur noch angezeigt, wenn der Inhalt tatsächlich gescrollt werden muss.
+- Die Überschrift „WiX-Quellcode“ hat jetzt den Hintergrund des Reiters statt einer weißen Hinterlegung.
 
----
+## Neu in 1.9.0
 
-## Highlights
+- Im Ausgabeordner entstehen standardmäßig nur die fertige **MSI-Datei** und eine wiederöffnbare **`.wix`-Projektdatei**.
+- Die `.wix`-Datei ist die msiBuilder-Projektdatei und speichert alle relevanten Einstellungen, insbesondere den **UpgradeCode** für spätere Updates.
+- Optional kann **„Quelldateien und Build-Daten im Ordner source speichern“** aktiviert werden. Dann enthält `source` die Programm-EXE, `installer.wxs`, `install.cmd` und `uninstall.cmd`.
+- Die von WiX erzeugte `.wixpdb` wird nach erfolgreichem Build entfernt; sie wird für den normalen msiBuilder-Workflow nicht benötigt.
+- Build-Zwischendateien entstehen in einem temporären Verzeichnis und werden automatisch gelöscht.
+- Der zusätzliche Leerraum oberhalb von **„Quelldatei & Ausgabe“** im Reiter **Projekt** wurde entfernt.
 
-### MSI aus EXE – ohne WiX-Handarbeit
+## Zielstruktur
 
-msiBuilder erzeugt den benötigten WiX-Quellcode automatisch aus deinen Projekteinstellungen und startet den WiX-Build im Hintergrund.
-
-### Wiederöffnbare Projekte
-
-Jedes Projekt kann als **`.wix`-Projektdatei** gespeichert werden. Diese Datei enthält die relevanten msiBuilder-Einstellungen und kann später wieder geöffnet werden.
-
-**Wichtig:** Die `.wix`-Datei ist eine **msiBuilder-Projektdatei** und **keine WiX-XML-Datei**. Der technische WiX-Quellcode verwendet weiterhin die Endung `.wxs`.
-
-### Update-fähig durch stabilen UpgradeCode
-
-Beim Erstellen eines neuen Projekts erzeugt msiBuilder einen **UpgradeCode**. Dieser wird in der `.wix`-Projektdatei gespeichert und bei späteren Versionen desselben Programms wiederverwendet.
-
-Damit kann Windows Installer eine neue MSI als Update derselben Produktfamilie erkennen.
-
-### Für Softwareverteilung vorbereitet
-
-Der Reiter **Deployment** erzeugt passende `msiexec`-Befehle für z. B.:
-
-- Microsoft Intune
-- Gruppenrichtlinien / GPO
-- RMM-Systeme
-- Softwareverteilung
-- eigene Batch-/PowerShell-Skripte
-
-Unterstützt werden unter anderem:
-
-- `/qn` – vollständig still
-- `/quiet` – vollständig still
-- `/passive` – nur Fortschritt
-- `/qb` – reduzierte Oberfläche
-- normale Installation
-- `/norestart`
-- ausführliches MSI-Logging mit `/L*V`
-- zusätzliche öffentliche MSI-Properties
-
-### Automatische Voraussetzungen-Prüfung
-
-msiBuilder prüft automatisch:
-
-1. ob ein **.NET SDK 6.0 oder neuer** installiert ist,
-2. ob das **WiX Toolset** verfügbar ist,
-3. ob WiX tatsächlich ein MSI bauen kann,
-4. und – falls erforderlich – ob der **WiX-EULA** zugestimmt wurde.
-
-Nach einer WiX-Installation wird nicht einfach nur `wix --version` geprüft. msiBuilder erstellt zusätzlich ein kleines temporäres Test-MSI. Erst wenn dieser Test erfolgreich ist, gilt WiX als einsatzbereit.
-
----
-
-## Schnellstart
-
-### 1. msiBuilder starten
-
-Starte `msiBuilder.exe`.
-
-Beim Programmstart werden die Voraussetzungen im Hintergrund geprüft. Die Oberfläche bleibt dabei direkt verfügbar.
-
-### 2. EXE auswählen
-
-Im Reiter **Projekt** bei **Programm-EXE** die Anwendung auswählen, aus der ein MSI erstellt werden soll.
-
-### 3. Ausgabeordner festlegen
-
-Wähle den Ordner, in dem die fertige MSI und die Projektdatei gespeichert werden sollen.
-
-### 4. Produktdaten eintragen
-
-Im Bereich **Produktdaten** werden unter anderem festgelegt:
-
-- Produktname
-- Hersteller
-- Version
-- Architektur
-- UpgradeCode
-
-Den **UpgradeCode bei späteren Versionen desselben Produkts nicht ändern**.
-
-### 5. Installationsoptionen festlegen
-
-Optional können Verknüpfungen erzeugt werden:
-
-- Startmenü
-- Desktop
-
-### 6. MSI erstellen
-
-Klicke auf **„MSI jetzt erstellen“** oder drücke **F5**.
-
-Fehlt WiX, führt msiBuilder durch die notwendige Installation und Prüfung. Nach erfolgreicher Einrichtung kann der ursprünglich gestartete Build automatisch fortgesetzt werden.
-
----
-
-## Die Oberfläche
-
-### Reiter „Projekt“
-
-Hier wird das eigentliche MSI-Projekt definiert:
-
-- Programm-EXE
-- Ausgabeordner
-- Produktname
-- Hersteller
-- Version
-- Architektur
-- UpgradeCode
-- Startmenü-Verknüpfung
-- Desktop-Verknüpfung
-- optionales Source-Archiv
-
-### Reiter „Deployment“
-
-Hier stellst du ein, wie das fertige MSI später verteilt oder automatisiert installiert werden soll.
-
-msiBuilder zeigt daraus direkt einen fertigen `msiexec`-Befehl an, der kopiert und beispielsweise in GPO, RMM oder Skripten verwendet werden kann.
-
-### Reiter „WiX-Code“
-
-Der von msiBuilder erzeugte WiX-Quellcode kann hier eingesehen und direkt bearbeitet werden.
-
-Du kannst:
-
-- automatisch erzeugten Code prüfen,
-- ihn manuell anpassen,
-- `.wxs`-Dateien importieren,
-- WiX-Code separat als `.wxs` speichern,
-- oder den Code jederzeit erneut aus den Projektdaten erzeugen.
-
-Wird eigener WiX-Code verwendet, kann dieser zusammen mit dem Projekt gespeichert werden.
-
-### Reiter „Build-Log“
-
-Hier erscheinen:
-
-- Prüfungen der Voraussetzungen
-- WiX-Ausgaben
-- Installationsstatus
-- Build-Ausgaben
-- Fehlermeldungen
-
-Wenn ein MSI-Build fehlschlägt, ist dies die erste Stelle für die Fehlersuche.
-
----
-
-## Projektdateien und Ausgabe
-
-Standardmäßig bleibt der Zielordner bewusst sauber:
+Ohne Source-Archivierung:
 
 ```text
 Ausgabeordner\
@@ -186,20 +41,7 @@ Ausgabeordner\
 └── MeinProgramm.wix
 ```
 
-Dabei ist:
-
-- `MeinProgramm-1.0.0.msi` → der fertige Installer
-- `MeinProgramm.wix` → die wiederöffnbare msiBuilder-Projektdatei
-
-Die von WiX erzeugte `.wixpdb` wird für den normalen Workflow nicht benötigt und nach erfolgreichem Build entfernt.
-
-### Optional: vollständige Quelldaten archivieren
-
-Aktivierst du:
-
-**„Quelldateien und Build-Daten im Ordner source speichern“**
-
-entsteht zusätzlich:
+Mit aktivierter Source-Archivierung:
 
 ```text
 Ausgabeordner\
@@ -212,213 +54,73 @@ Ausgabeordner\
     └── uninstall.cmd
 ```
 
-Damit kann ein Projekt inklusive der verwendeten Programmdatei und der technischen Build-Daten archiviert werden.
+Die `.wix`-Projektdatei verweist bei archivierten Quelldaten relativ auf `source\MeinProgramm.exe`. Dadurch lässt sich der gesamte Ausgabeordner verschieben und später wieder öffnen.
 
-Bei aktivierter Source-Archivierung speichert die `.wix`-Projektdatei den Pfad zur EXE relativ. Dadurch lässt sich der gesamte Projektordner verschieben oder sichern und später wieder öffnen.
+## Projektdatei und Updates
 
----
+Beim erstmaligen Projekt wird ein UpgradeCode erzeugt. Dieser wird in der `.wix`-Projektdatei gespeichert und beim erneuten Öffnen wiederhergestellt. Für neue Versionen desselben Produkts bleibt dieser UpgradeCode erhalten, damit Windows Installer die neue MSI als Update derselben Produktfamilie erkennen kann.
 
-## Updates für ein bestehendes Programm erstellen
+Die Projektdatei speichert unter anderem:
 
-Für ein Update sollte nicht jedes Mal ein neues Projekt begonnen werden.
-
-Empfohlener Ablauf:
-
-1. vorhandene `.wix`-Projektdatei öffnen,
-2. neue EXE auswählen bzw. die archivierte EXE ersetzen,
-3. Versionsnummer erhöhen,
-4. **UpgradeCode unverändert lassen**,
-5. neues MSI erstellen.
-
-Beispiel:
-
-```text
-Version 1.0.0
-UpgradeCode: {ABCDEF12-3456-7890-ABCD-EF1234567890}
-
-Version 1.1.0
-UpgradeCode: {ABCDEF12-3456-7890-ABCD-EF1234567890}
-```
-
-Der UpgradeCode identifiziert die Produktfamilie. Genau deshalb wird er dauerhaft in der `.wix`-Projektdatei gespeichert.
-
----
+- Produktname
+- Hersteller
+- Version
+- Architektur
+- UpgradeCode
+- EXE-Pfad bzw. relativen Source-Pfad
+- Startmenü-/Desktop-Verknüpfung
+- Deployment-Einstellungen
+- Source-Archivierungsoption
+- optional individuell bearbeiteten WiX-Quellcode
 
 ## Voraussetzungen
 
-### Windows
+msiBuilder prüft automatisch:
 
-msiBuilder ist für Windows ausgelegt. Das erzeugte MSI verwendet Windows Installer.
+1. **.NET SDK 6.0 oder neuer**
+2. das **WiX Toolset**
 
-### .NET SDK
+Nach einer WiX-Installation wird automatisch ein echtes temporäres Test-MSI gebaut. So wird geprüft, ob WiX tatsächlich funktioniert und – bei WiX 7 – ob die erforderliche EULA-Zustimmung erfolgt ist. Falls nötig, wird die Zustimmung angeboten und der Test danach automatisch wiederholt.
 
-Für WiX wird mindestens benötigt:
+## Bedienung
 
-```text
-.NET SDK 6.0 oder neuer
-```
+- **Ctrl+O** – Programm-EXE auswählen
+- **Ctrl+L** – msiBuilder-Projekt (`.wix`) öffnen
+- **Ctrl+S** – msiBuilder-Projekt (`.wix`) speichern
+- **Ctrl+Shift+O** – Ausgabeordner öffnen
+- **F5** – MSI jetzt erstellen
+- **F6** – Voraussetzungen prüfen
+- **F1** – Über msiBuilder
 
-msiBuilder prüft nicht nur, ob `dotnet` vorhanden ist, sondern wertet die tatsächlich installierten SDK-Versionen aus.
+WiX-Quellcode (`.wxs`) kann weiterhin über das Datei-Menü separat importiert oder exportiert werden.
 
-Beispiel:
-
-```text
-2.1.202
-```
-
-ist **zu alt**.
-
-Sind mehrere SDKs installiert, reicht mindestens eine kompatible Version, z. B.:
-
-```text
-2.1.202
-8.0.414
-```
-
-→ **einsatzbereit**.
-
-### WiX Toolset
-
-WiX wird extern verwendet und ist nicht Bestandteil von msiBuilder.
-
-Falls WiX fehlt, kann msiBuilder die Installation über das .NET SDK anstoßen:
-
-```cmd
-dotnet tool install --global wix
-```
-
-Nach der Installation folgt automatisch ein echter Funktionstest.
-
-### WiX-EULA
-
-Bei WiX-Versionen, die eine ausdrückliche Zustimmung verlangen, erkennt msiBuilder diesen Zustand beim Funktionstest und bietet die notwendige Zustimmung an.
-
-WiX ist ein eigenständiges Projekt. Es gelten dessen eigene Lizenz-, EULA- und gegebenenfalls Maintenance-Bedingungen.
-
----
-
-## Tastenkürzel
-
-| Tastenkürzel | Funktion |
-|---|---|
-| `Ctrl+O` | Programm-EXE auswählen |
-| `Ctrl+L` | msiBuilder-Projekt (`.wix`) öffnen |
-| `Ctrl+S` | Projekt speichern |
-| `Ctrl+Shift+O` | Ausgabeordner öffnen |
-| `F5` | MSI jetzt erstellen |
-| `F6` | Voraussetzungen prüfen |
-| `F1` | Über msiBuilder |
-
-Zusätzlich stehen die wichtigsten Funktionen über die klassische Menüleiste zur Verfügung.
-
----
-
-## Typischer Deployment-Befehl
-
-Für eine vollständig stille Installation eignet sich beispielsweise:
-
-```cmd
-msiexec /i "MeinProgramm-1.0.0.msi" /qn /norestart /L*V "MeinProgramm-install.log"
-```
-
-Eine stille Deinstallation kann über Windows Installer ebenfalls automatisiert werden. Wenn die Source-Archivierung aktiviert ist, legt msiBuilder zusätzlich passende `install.cmd`- und `uninstall.cmd`-Hilfsdateien ab.
-
----
-
-## Eigene WiX-Anpassungen
-
-Für Standardprojekte ist kein eigener WiX-Code notwendig.
-
-Wer mehr Kontrolle benötigt, kann den automatisch erzeugten Code im Reiter **WiX-Code** direkt bearbeiten. Dadurch lassen sich spezielle WiX-Szenarien ergänzen, ohne auf die Projektverwaltung von msiBuilder verzichten zu müssen.
-
-Der aktuelle Code kann jederzeit wieder aus den Projektangaben neu erzeugt werden.
-
----
-
-## Fehlerbehebung
-
-### „.NET SDK ist zu alt“
-
-Installiere ein aktuelles .NET SDK ab Version 6.0 und starte anschließend **Voraussetzungen prüfen** erneut.
-
-### „WiX wurde nicht gefunden“
-
-Nutze **Werkzeuge → WiX installieren** oder starte erneut **MSI jetzt erstellen**. msiBuilder kann die Installation automatisch anstoßen.
-
-### WiX ist installiert, aber der Build funktioniert nicht
-
-msiBuilder führt einen echten Test-Build durch. Details stehen im **Build-Log**. Bei einer noch nicht akzeptierten WiX-EULA wird die Zustimmung automatisch angeboten.
-
-### MSI-Build schlägt bei eigenem WiX-Code fehl
-
-Im Reiter **WiX-Code** prüfen, ob der manuell angepasste `.wxs`-Code gültig ist. Alternativ **„Aus Projektdaten neu erzeugen“** verwenden.
-
-### Update installiert sich nicht wie erwartet
-
-Prüfen, ob für alle Versionen derselben Anwendung derselbe **UpgradeCode** verwendet wurde. Am sichersten ist es, für Updates immer die ursprüngliche `.wix`-Projektdatei erneut zu öffnen.
-
----
-
-## msiBuilder selbst aus dem Quellcode bauen
-
-Im Repository befindet sich `build_onefile.bat`.
-
-Voraussetzung dafür ist eine lokale Python-Installation mit dem Python Launcher `py`.
-
-Danach:
+## One-File-EXE bauen
 
 ```cmd
 build_onefile.bat
 ```
 
-Das Skript:
-
-1. installiert bzw. aktualisiert PyInstaller,
-2. entfernt alte Build-Artefakte,
-3. erzeugt eine einzelne Windows-EXE,
-4. bindet das msiBuilder-Icon ein.
-
-Die fertige Anwendung liegt anschließend unter:
-
-```text
-dist\msiBuilder.exe
-```
-
-Für Benutzer der fertigen EXE ist keine Python-Installation notwendig.
-
----
-
-## Projektstruktur
-
-```text
-msiBuilder/
-├── msibuilder.py
-├── msibuilder.ico
-├── msibuilder_icon.png
-├── build_onefile.bat
-├── README.md
-├── README_DE.md
-└── LICENSE
-```
-
----
+Das Buildskript erzeugt `dist\msiBuilder.exe` mit dem integrierten Programmsymbol.
 
 ## Lizenz
 
-msiBuilder wird unter der **MIT License** veröffentlicht.
+msiBuilder steht unter der MIT License. WiX ist eine externe Abhängigkeit und besitzt eigene Lizenz-/Nutzungsbedingungen.
 
-WiX ist **nicht Bestandteil** dieses Projekts und wird als externes Tool verwendet. Für WiX gelten die eigenen Lizenz- und Nutzungsbedingungen.
+- Layout: Der obere Abstand der Box „Quelldatei & Ausgabe“ entspricht jetzt dem linken und rechten Innenabstand des Projekt-Tabs.
 
----
+### Individueller MSI-Dateiname
 
-## Repository Description
+Der erzeugte MSI-Dateiname kann optional um ein **Präfix** und/oder **Suffix** ergänzt werden. Die Trennung per Unterstrich übernimmt msiBuilder automatisch. Eine Live-Vorschau zeigt jederzeit den endgültigen Namen.
 
-> **A modern Windows GUI for building MSI installers from EXE files using WiX, with silent deployment options and automatic prerequisite checks.**
+Beispiele:
 
----
+- `MeinProgramm-1.0.0.msi`
+- `Setup_MeinProgramm-1.0.0.msi`
+- `MeinProgramm-1.0.0_x64.msi`
+- `Setup_MeinProgramm-1.0.0_x64.msi`
 
-## Kurz gesagt
+Präfix und Suffix werden zusammen mit dem Projekt in der `.wix`-Datei gespeichert.
 
-Wenn du eine EXE hast und daraus ohne unnötige Handarbeit ein vernünftiges MSI für Installation, Updates oder zentrale Softwareverteilung bauen willst, soll msiBuilder genau diesen Weg möglichst kurz machen:
+### Dateizuordnungen und ProgID
 
-**Projekt öffnen → EXE wählen → MSI erstellen.**
+Bei Dateizuordnungen gibt der Benutzer nur die Dateiendung (z. B. `.csv`) und eine Beschreibung an. Die **ProgID ist nicht die Dateiendung**, sondern eine technische Windows-Kennung für den registrierten Dateityp. msiBuilder erzeugt diese automatisch und stabil aus Produktname, Endung und Projektkennung.

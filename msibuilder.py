@@ -14,7 +14,7 @@ import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 
 APP_NAME = "msiBuilder"
-APP_VERSION = "1.9.1"
+APP_VERSION = "1.11.0"
 APP_DEVELOPER = "Fachlehrer-DEV"
 PROJECT_GITHUB_URL = "https://github.com/fachlehrer-dev/msiBuilder"
 PROJECT_INFO_URL = "https://fachlehrer.dev/msiBuilder"
@@ -34,7 +34,10 @@ TRANSLATIONS = {
         "subtitle": "Select an EXE · Build an MSI with WiX · Prepare software deployment",
         "info": "Info", "recheck": "Check again", "ready": "Ready for MSI build and software deployment.",
         "build_msi": "Build MSI", "build_msi_now": "Create MSI now", "open_output": "Open output folder",
-        "tab_project": "Project", "tab_deploy": "Deployment", "tab_log": "Build log",
+        "tab_project": "Project", "tab_filetypes": "File types", "tab_deploy": "Deployment", "tab_log": "Build log",
+        "filetypes_title": "File associations", "filetypes_help": "Register one or more file extensions for the installed application. Windows will list the application under Open with / Default apps. Existing user defaults cannot be overwritten silently on Windows 10/11.",
+        "filetype_extension": "Extension", "filetype_description": "Description", "filetype_add": "Add / update", "filetype_remove": "Remove selected", "filetype_example": "Examples: .csv, .md, .myfile", "filetype_target": "Files are opened with the installed application and passed as the first argument (\"%1\").",
+        "filetype_invalid": "Please enter a valid file extension, for example .csv.", "filetype_default_desc": "{ext} file",
         "source_output": "Source file & output", "program_exe": "Application EXE", "output_folder": "Output folder", "keep_source": "Save source and build data in the source folder",
         "browse": "Browse…", "product_data": "Product data", "product_name": "Product name", "manufacturer": "Manufacturer",
         "version": "Version", "architecture": "Architecture", "installer_options": "Installer options",
@@ -184,6 +187,25 @@ TRANSLATIONS["de"].update({
     "wix_eula_accepting": "WiX-EULA wird bestätigt…",
     "wix_eula_ok": "Der WiX-7-EULA wurde erfolgreich zugestimmt. MSI-Pakete können jetzt erstellt werden.",
     "wix_eula_failed": "Die Zustimmung zur WiX-EULA ist fehlgeschlagen (Exitcode {rc}). Details stehen im Build-Log.",
+})
+
+TRANSLATIONS["en"].update({
+    "filename_options": "MSI file name",
+    "filename_prefix": "Prefix",
+    "filename_suffix": "Suffix",
+    "filename_preview": "File name preview",
+    "filename_optional": "optional",
+    "filename_help": "Prefix and suffix are optional. msiBuilder inserts the underscore automatically.",
+    "filetype_progid_hint": "ProgID is generated automatically for each extension and normally does not need to be edited.",
+})
+TRANSLATIONS["de"].update({
+    "filename_options": "MSI-Dateiname",
+    "filename_prefix": "Präfix",
+    "filename_suffix": "Suffix",
+    "filename_preview": "Dateinamenvorschau",
+    "filename_optional": "optional",
+    "filename_help": "Präfix und Suffix sind optional. Den Unterstrich setzt msiBuilder automatisch.",
+    "filetype_progid_hint": "Die ProgID wird für jede Dateiendung automatisch erzeugt und muss normalerweise nicht bearbeitet werden.",
 })
 
 MODE_FLAGS = {"qn": "/qn", "quiet": "/quiet", "passive": "/passive", "qb": "/qb", "normal": ""}
@@ -407,13 +429,39 @@ class App(tk.Tk):
         self.product_name = tk.StringVar(value='My Application' if self.language == 'en' else 'Meine Anwendung')
         self.manufacturer = tk.StringVar(value='M. Maier'); self.version = tk.StringVar(value='1.0.0'); self.arch = tk.StringVar(value='x64')
         self.start_menu = tk.BooleanVar(value=True); self.desktop_shortcut = tk.BooleanVar(value=False); self.keep_source = tk.BooleanVar(value=False); self.upgrade_code = tk.StringVar(value=str(uuid.uuid4()).upper())
+        self.filename_prefix = tk.StringVar(); self.filename_suffix = tk.StringVar(); self.filename_preview = tk.StringVar()
+        self.file_associations = []
+        self.filetype_ext = tk.StringVar(); self.filetype_desc = tk.StringVar()
         self.ui_mode_key = 'qn'; self.ui_mode_display = tk.StringVar(); self.ui_mode_help = tk.StringVar()
         self.no_restart = tk.BooleanVar(value=True); self.logging = tk.BooleanVar(value=True); self.log_name = tk.StringVar(value='install.log'); self.generate_cmd = tk.BooleanVar(value=False); self.extra_props = tk.StringVar()
         self.dotnet_status = tk.StringVar(value=self.t('checking')); self.wix_status = tk.StringVar(value=self.t('checking')); self.command_preview = tk.StringVar()
         self.language_display = tk.StringVar(value='English' if self.language == 'en' else 'Deutsch')
         self.wix_code_status = tk.StringVar(value=self.t('wix_generated'))
-        for var in (self.no_restart, self.logging, self.log_name, self.extra_props, self.product_name, self.version):
-            var.trace_add('write', lambda *_: self.update_command_preview())
+        for var in (self.no_restart, self.logging, self.log_name, self.extra_props, self.product_name, self.version, self.filename_prefix, self.filename_suffix):
+            var.trace_add('write', lambda *_: self._refresh_filename_dependent_previews())
+        self._refresh_filename_dependent_previews()
+
+    def _filename_token(self, value):
+        value = (value or '').strip()
+        value = re.sub(r'[<>:\"/\\|?*]+', '-', value)
+        value = re.sub(r'\s+', ' ', value).strip(' ._-')
+        return safe_filename(value).strip(' ._-') if value else ''
+
+    def msi_filename(self):
+        base = safe_filename(self.product_name.get().strip() or 'Application') + '-' + normalize_version(self.version.get())
+        prefix = self._filename_token(self.filename_prefix.get())
+        suffix = self._filename_token(self.filename_suffix.get())
+        if prefix:
+            base = prefix + '_' + base
+        if suffix:
+            base = base + '_' + suffix
+        return base + '.msi'
+
+    def _refresh_filename_dependent_previews(self):
+        if hasattr(self, 'filename_preview'):
+            self.filename_preview.set(self.msi_filename())
+        if hasattr(self, 'command_preview'):
+            self.update_command_preview()
 
     def _mode_label(self, key): return self.t('mode_' + key)
     def _mode_help(self, key): return self.t('mode_' + key + '_help')
@@ -491,11 +539,11 @@ class App(tk.Tk):
         ttk.Label(footer, text='F5  ' + self.t('build_msi') + '   ·   F6  ' + self.t('recheck'), style='Status.TLabel').pack(side='right')
 
         self.notebook = ttk.Notebook(self); self.notebook.pack(fill='both', expand=True, padx=22, pady=(8,8))
-        self.tab_project = ttk.Frame(self.notebook); self.tab_deploy = ttk.Frame(self.notebook); self.tab_wix = ttk.Frame(self.notebook, padding=8); self.tab_log = ttk.Frame(self.notebook, padding=8)
-        self.notebook.add(self.tab_project, text='  '+self.t('tab_project')+'  '); self.notebook.add(self.tab_deploy, text='  '+self.t('tab_deploy')+'  '); self.notebook.add(self.tab_wix, text='  '+self.t('tab_wix')+'  '); self.notebook.add(self.tab_log, text='  '+self.t('tab_log')+'  ')
+        self.tab_project = ttk.Frame(self.notebook); self.tab_filetypes = ttk.Frame(self.notebook, padding=8); self.tab_deploy = ttk.Frame(self.notebook); self.tab_wix = ttk.Frame(self.notebook, padding=8); self.tab_log = ttk.Frame(self.notebook, padding=8)
+        self.notebook.add(self.tab_project, text='  '+self.t('tab_project')+'  '); self.notebook.add(self.tab_filetypes, text='  '+self.t('tab_filetypes')+'  '); self.notebook.add(self.tab_deploy, text='  '+self.t('tab_deploy')+'  '); self.notebook.add(self.tab_wix, text='  '+self.t('tab_wix')+'  '); self.notebook.add(self.tab_log, text='  '+self.t('tab_log')+'  ')
         self.project_scroll = ScrollableFrame(self.tab_project, padding=(8,8,8,8)); self.project_scroll.pack(fill='both', expand=True); self.project_content = self.project_scroll.inner
         self.deploy_scroll = ScrollableFrame(self.tab_deploy, padding=8); self.deploy_scroll.pack(fill='both', expand=True); self.deploy_content = self.deploy_scroll.inner
-        self._build_project_tab(); self._build_deploy_tab(); self._build_wix_tab(); self._build_log_tab()
+        self._build_project_tab(); self._build_filetypes_tab(); self._build_deploy_tab(); self._build_wix_tab(); self._build_log_tab(); self._refresh_filename_dependent_previews()
 
     def _set_language(self, new_lang):
         if new_lang not in ('en','de') or new_lang == self.language:
@@ -519,7 +567,17 @@ class App(tk.Tk):
         ttk.Label(grid,text=self.t('program_exe'),style='CardText.TLabel').grid(row=0,column=0,sticky='w',padx=(0,12),pady=5); ttk.Entry(grid,textvariable=self.exe_path).grid(row=0,column=1,sticky='ew',pady=5); ttk.Button(grid,text=self.t('browse'),style='Secondary.TButton',command=self.choose_exe).grid(row=0,column=2,padx=(8,0),pady=5)
         ttk.Label(grid,text=self.t('output_folder'),style='CardText.TLabel').grid(row=1,column=0,sticky='w',padx=(0,12),pady=5); ttk.Entry(grid,textvariable=self.out_dir).grid(row=1,column=1,sticky='ew',pady=5); ttk.Button(grid,text=self.t('browse'),style='Secondary.TButton',command=self.choose_out).grid(row=1,column=2,padx=(8,0),pady=5)
         ttk.Checkbutton(grid,text=self.t('keep_source'),variable=self.keep_source).grid(row=2,column=1,columnspan=2,sticky='w',pady=(7,2))
-        meta=self._card(t,self.t('product_data'),1,0); mg=ttk.Frame(meta,style='Card.TFrame'); mg.pack(fill='both',expand=True); mg.columnconfigure(1,weight=1)
+
+        fname=self._card(t,self.t('filename_options'),1,0,2); fg=ttk.Frame(fname,style='Card.TFrame'); fg.pack(fill='x'); fg.columnconfigure(1,weight=1); fg.columnconfigure(3,weight=1)
+        ttk.Label(fg,text=self.t('filename_prefix'),style='CardText.TLabel').grid(row=0,column=0,sticky='w',padx=(0,8),pady=5)
+        ttk.Entry(fg,textvariable=self.filename_prefix).grid(row=0,column=1,sticky='ew',padx=(0,18),pady=5)
+        ttk.Label(fg,text=self.t('filename_suffix'),style='CardText.TLabel').grid(row=0,column=2,sticky='w',padx=(0,8),pady=5)
+        ttk.Entry(fg,textvariable=self.filename_suffix).grid(row=0,column=3,sticky='ew',pady=5)
+        ttk.Label(fg,text=self.t('filename_preview')+':',style='Muted.TLabel').grid(row=1,column=0,sticky='w',padx=(0,8),pady=(7,2))
+        ttk.Label(fg,textvariable=self.filename_preview,style='CardText.TLabel').grid(row=1,column=1,columnspan=3,sticky='w',pady=(7,2))
+        ttk.Label(fg,text=self.t('filename_help'),style='Muted.TLabel').grid(row=2,column=0,columnspan=4,sticky='w',pady=(5,0))
+
+        meta=self._card(t,self.t('product_data'),2,0); mg=ttk.Frame(meta,style='Card.TFrame'); mg.pack(fill='both',expand=True); mg.columnconfigure(1,weight=1)
         for r,(label,var) in enumerate([(self.t('product_name'),self.product_name),(self.t('manufacturer'),self.manufacturer),(self.t('version'),self.version)]): ttk.Label(mg,text=label,style='CardText.TLabel').grid(row=r,column=0,sticky='w',padx=(0,10),pady=6); ttk.Entry(mg,textvariable=var).grid(row=r,column=1,sticky='ew',pady=6)
         ttk.Label(mg,text=self.t('architecture'),style='CardText.TLabel').grid(row=3,column=0,sticky='w',padx=(0,10),pady=6)
         arch_frame=ttk.Frame(mg,style='Card.TFrame'); arch_frame.grid(row=3,column=1,sticky='w',pady=6)
@@ -529,8 +587,98 @@ class App(tk.Tk):
             btn.grid(row=0,column=i,padx=(0 if i==0 else 5,0))
             self.arch_buttons[value]=btn
         self._refresh_arch_buttons()
-        opts=self._card(t,self.t('installer_options'),1,1); ttk.Checkbutton(opts,text=self.t('start_menu'),variable=self.start_menu).pack(anchor='w',pady=5); ttk.Checkbutton(opts,text=self.t('desktop'),variable=self.desktop_shortcut).pack(anchor='w',pady=5)
+        opts=self._card(t,self.t('installer_options'),2,1); ttk.Checkbutton(opts,text=self.t('start_menu'),variable=self.start_menu).pack(anchor='w',pady=5); ttk.Checkbutton(opts,text=self.t('desktop'),variable=self.desktop_shortcut).pack(anchor='w',pady=5)
         ttk.Label(opts,text=self.t('upgrade_code'),style='Muted.TLabel').pack(anchor='w',pady=(12,4)); row=ttk.Frame(opts,style='Card.TFrame'); row.pack(fill='x'); ttk.Entry(row,textvariable=self.upgrade_code).pack(side='left',fill='x',expand=True); ttk.Button(row,text=self.t('new'),style='Secondary.TButton',command=lambda:self.upgrade_code.set(str(uuid.uuid4()).upper())).pack(side='left',padx=(8,0)); ttk.Label(opts,text=self.t('upgrade_help'),style='Muted.TLabel',wraplength=390).pack(anchor='w',pady=(10,0))
+
+    def _normalize_extension(self, value):
+        value=(value or '').strip().lower()
+        if not value:
+            return ''
+        if not value.startswith('.'):
+            value='.'+value
+        if not re.fullmatch(r'\.[a-z0-9][a-z0-9_+.-]{0,31}', value):
+            return ''
+        return value
+
+    def _build_filetypes_tab(self):
+        outer=ttk.Frame(self.tab_filetypes, padding=(8,8,8,8)); outer.pack(fill='both',expand=True)
+        card=tk.Frame(outer,bg=ModernStyle.BORDER,bd=0); card.pack(fill='both',expand=True)
+        inner=ttk.Frame(card,style='Card.TFrame',padding=16); inner.pack(fill='both',expand=True,padx=1,pady=1)
+        ttk.Label(inner,text=self.t('filetypes_title'),style='CardTitle.TLabel').pack(anchor='w')
+        ttk.Label(inner,text=self.t('filetypes_help'),style='Muted.TLabel',wraplength=900).pack(anchor='w',pady=(4,4))
+        ttk.Label(inner,text=self.t('filetype_progid_hint'),style='Muted.TLabel',wraplength=900).pack(anchor='w',pady=(0,12))
+
+        form=ttk.Frame(inner,style='Card.TFrame'); form.pack(fill='x'); form.columnconfigure(1,weight=1); form.columnconfigure(3,weight=3)
+        ttk.Label(form,text=self.t('filetype_extension'),style='CardText.TLabel').grid(row=0,column=0,sticky='w',padx=(0,8))
+        ext_entry=ttk.Entry(form,textvariable=self.filetype_ext,width=18); ext_entry.grid(row=0,column=1,sticky='ew',padx=(0,16))
+        ttk.Label(form,text=self.t('filetype_description'),style='CardText.TLabel').grid(row=0,column=2,sticky='w',padx=(0,8))
+        desc_entry=ttk.Entry(form,textvariable=self.filetype_desc); desc_entry.grid(row=0,column=3,sticky='ew')
+        ttk.Label(form,text=self.t('filetype_example'),style='Muted.TLabel').grid(row=1,column=0,columnspan=2,sticky='w',pady=(4,0))
+
+        actions=ttk.Frame(inner,style='Card.TFrame'); actions.pack(fill='x',pady=(10,10))
+        ttk.Button(actions,text=self.t('filetype_add'),style='Accent.TButton',command=self._add_or_update_filetype).pack(side='left')
+        ttk.Button(actions,text=self.t('filetype_remove'),style='Secondary.TButton',command=self._remove_filetype).pack(side='left',padx=(8,0))
+        ttk.Label(actions,text=self.t('filetype_target'),style='Muted.TLabel').pack(side='right')
+
+        table_frame=tk.Frame(inner,bg=ModernStyle.BORDER,bd=0); table_frame.pack(fill='both',expand=True)
+        self.filetype_tree=ttk.Treeview(table_frame,columns=('extension','description'),show='headings',selectmode='browse',height=9)
+        self.filetype_tree.heading('extension',text=self.t('filetype_extension')); self.filetype_tree.heading('description',text=self.t('filetype_description'))
+        self.filetype_tree.column('extension',width=160,stretch=False,anchor='w'); self.filetype_tree.column('description',width=650,stretch=True,anchor='w')
+        vs=ttk.Scrollbar(table_frame,orient='vertical',command=self.filetype_tree.yview)
+        def _set_scroll(first,last):
+            vs.set(first,last)
+            if float(first)<=0.0 and float(last)>=1.0: vs.grid_remove()
+            else: vs.grid()
+        self.filetype_tree.configure(yscrollcommand=_set_scroll)
+        self.filetype_tree.grid(row=0,column=0,sticky='nsew',padx=(1,0),pady=1); vs.grid(row=0,column=1,sticky='ns',pady=1); vs.grid_remove()
+        table_frame.grid_rowconfigure(0,weight=1); table_frame.grid_columnconfigure(0,weight=1)
+        self.filetype_tree.bind('<<TreeviewSelect>>',self._on_filetype_select)
+        self.filetype_tree.bind('<Double-1>',self._on_filetype_select)
+        ext_entry.bind('<Return>',lambda e:self._add_or_update_filetype())
+        desc_entry.bind('<Return>',lambda e:self._add_or_update_filetype())
+        self._refresh_filetype_tree()
+
+    def _refresh_filetype_tree(self):
+        if not hasattr(self,'filetype_tree'):
+            return
+        for item in self.filetype_tree.get_children(): self.filetype_tree.delete(item)
+        for assoc in sorted(self.file_associations,key=lambda x:x.get('extension','')):
+            self.filetype_tree.insert('', 'end', values=(assoc.get('extension',''), assoc.get('description','')))
+
+    def _on_filetype_select(self, _event=None):
+        if not hasattr(self,'filetype_tree'):
+            return
+        sel=self.filetype_tree.selection()
+        if not sel:
+            return
+        vals=self.filetype_tree.item(sel[0],'values')
+        if vals:
+            self.filetype_ext.set(vals[0]); self.filetype_desc.set(vals[1] if len(vals)>1 else '')
+
+    def _add_or_update_filetype(self):
+        ext=self._normalize_extension(self.filetype_ext.get())
+        if not ext:
+            messagebox.showerror(APP_NAME,self.t('filetype_invalid'),parent=self); return
+        desc=self.filetype_desc.get().strip() or self.t('filetype_default_desc',ext=ext)
+        updated=False
+        for assoc in self.file_associations:
+            if assoc.get('extension','').lower()==ext:
+                assoc['extension']=ext; assoc['description']=desc; updated=True; break
+        if not updated:
+            self.file_associations.append({'extension':ext,'description':desc})
+        self.filetype_ext.set(''); self.filetype_desc.set(''); self._refresh_filetype_tree()
+        if hasattr(self,'wix_editor') and not self.wix_custom: self.regenerate_wix_code(mark_custom=False)
+
+    def _remove_filetype(self):
+        if not hasattr(self,'filetype_tree'):
+            return
+        sel=self.filetype_tree.selection()
+        if not sel:
+            return
+        vals=self.filetype_tree.item(sel[0],'values'); ext=vals[0] if vals else ''
+        self.file_associations=[a for a in self.file_associations if a.get('extension')!=ext]
+        self.filetype_ext.set(''); self.filetype_desc.set(''); self._refresh_filetype_tree()
+        if hasattr(self,'wix_editor') and not self.wix_custom: self.regenerate_wix_code(mark_custom=False)
 
     def _set_arch(self, value):
         self.arch.set(value)
@@ -618,6 +766,8 @@ class App(tk.Tk):
             "source_exe": source_relative if source_relative is not None else self.exe_path.get(),
             "output_folder": self.out_dir.get(), "start_menu": bool(self.start_menu.get()),
             "desktop_shortcut": bool(self.desktop_shortcut.get()), "keep_source": bool(self.keep_source.get()),
+            "filename_prefix": self.filename_prefix.get().strip(), "filename_suffix": self.filename_suffix.get().strip(),
+            "file_associations": [dict(x) for x in self.file_associations],
             "ui_mode": self.ui_mode_key, "no_restart": bool(self.no_restart.get()),
             "logging": bool(self.logging.get()), "log_name": self.log_name.get(),
             "extra_properties": self.extra_props.get(),
@@ -651,6 +801,13 @@ class App(tk.Tk):
             self.version.set(data.get('version','1.0.0')); self.arch.set(data.get('architecture','x64')); self._refresh_arch_buttons()
             self.upgrade_code.set(data.get('upgrade_code',str(uuid.uuid4()).upper()))
             self.start_menu.set(bool(data.get('start_menu',True))); self.desktop_shortcut.set(bool(data.get('desktop_shortcut',False))); self.keep_source.set(bool(data.get('keep_source',False)))
+            self.filename_prefix.set(data.get('filename_prefix','')); self.filename_suffix.set(data.get('filename_suffix',''))
+            self.file_associations=[]
+            for item in data.get('file_associations',[]):
+                if isinstance(item,dict):
+                    ext=self._normalize_extension(item.get('extension',''))
+                    if ext: self.file_associations.append({'extension':ext,'description':str(item.get('description','')).strip() or self.t('filetype_default_desc',ext=ext)})
+            self._refresh_filetype_tree()
             self.ui_mode_key=data.get('ui_mode','qn'); self.no_restart.set(bool(data.get('no_restart',True))); self.logging.set(bool(data.get('logging',True))); self.log_name.set(data.get('log_name','install.log')); self.extra_props.set(data.get('extra_properties',''))
             if data.get('custom_wix') and data.get('wix_source'):
                 self._set_wix_editor_text(data['wix_source'],custom=True)
@@ -888,7 +1045,7 @@ class App(tk.Tk):
 
     def update_command_preview(self):
         if not hasattr(self,'preview_box'): return
-        msi=safe_filename(self.product_name.get())+'-'+normalize_version(self.version.get())+'.msi'; cmd=f'msiexec.exe /i "{msi}"'; flags=self.deployment_flags(); cmd += (' '+flags) if flags else ''; self.command_preview.set(cmd); self.preview_box.configure(state='normal'); self.preview_box.delete('1.0','end'); self.preview_box.insert('1.0',cmd); self.preview_box.configure(state='disabled')
+        msi=self.msi_filename(); cmd=f'msiexec.exe /i "{msi}"'; flags=self.deployment_flags(); cmd += (' '+flags) if flags else ''; self.command_preview.set(cmd); self.preview_box.configure(state='normal'); self.preview_box.delete('1.0','end'); self.preview_box.insert('1.0',cmd); self.preview_box.configure(state='disabled')
     def copy_command(self): self.clipboard_clear(); self.clipboard_append(self.command_preview.get()); self.update()
     def log(self,text):
         if hasattr(self,'logbox'): self.logbox.insert('end',text.rstrip()+'\n'); self.logbox.see('end')
@@ -988,7 +1145,30 @@ class App(tk.Tk):
         shortcut_nodes=[]; std_dirs=[]; refs=['MainExeComponent']; reg=f'Software\\{manufacturer}\\{product}'
         if self.start_menu.get(): std_dirs.append(f'    <StandardDirectory Id="ProgramMenuFolder">\n      <Directory Id="AppProgramsFolder" Name="{install_dir}" />\n    </StandardDirectory>'); shortcut_nodes.append(f'    <Component Id="StartMenuShortcutComponent" Directory="AppProgramsFolder" Guid="*">\n      <Shortcut Id="StartMenuShortcut" Name="{product}" Target="[#MainExeFile]" WorkingDirectory="INSTALLFOLDER" />\n      <RemoveFolder Id="RemoveAppProgramsFolder" On="uninstall" />\n      <RegistryValue Root="HKLM" Key="{reg}" Name="StartMenuShortcut" Type="integer" Value="1" KeyPath="yes" />\n    </Component>'); refs.append('StartMenuShortcutComponent')
         if self.desktop_shortcut.get(): std_dirs.append('    <StandardDirectory Id="DesktopFolder" />'); shortcut_nodes.append(f'    <Component Id="DesktopShortcutComponent" Directory="DesktopFolder" Guid="*">\n      <Shortcut Id="DesktopShortcut" Name="{product}" Target="[#MainExeFile]" WorkingDirectory="INSTALLFOLDER" />\n      <RegistryValue Root="HKLM" Key="{reg}" Name="DesktopShortcut" Type="integer" Value="1" KeyPath="yes" />\n    </Component>'); refs.append('DesktopShortcutComponent')
-        return f'''<?xml version="1.0" encoding="utf-8"?>\n<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">\n  <Package Name="{product}" Manufacturer="{manufacturer}" Version="{version}" UpgradeCode="{upgrade}" Scope="perMachine">\n    <MajorUpgrade DowngradeErrorMessage="A newer version of {product} is already installed." />\n    <MediaTemplate EmbedCab="yes" />\n    <StandardDirectory Id="ProgramFiles6432Folder">\n      <Directory Id="INSTALLFOLDER" Name="{install_dir}" />\n    </StandardDirectory>\n{chr(10).join(std_dirs)}\n    <Component Id="MainExeComponent" Directory="INSTALLFOLDER" Guid="*">\n      <File Id="MainExeFile" Source="{esc(exe_name)}" KeyPath="yes" />\n    </Component>\n{chr(10).join(shortcut_nodes)}\n    <Feature Id="MainFeature" Title="{product}" Level="1">\n{chr(10).join('      <ComponentRef Id="'+r+'" />' for r in refs)}\n    </Feature>\n  </Package>\n</Wix>\n'''
+
+        # File associations: register the EXE as a supported handler. Modern Windows
+        # protects an existing per-user default; the user can choose the app in
+        # Open with / Default apps after installation.
+        assoc_nodes=[]; capability_nodes=[]
+        clean_product=re.sub(r'[^A-Za-z0-9]+','',self.product_name.get().strip()) or 'Application'
+        suffix=re.sub(r'[^A-Fa-f0-9]','',upgrade)[:8] or 'App'
+        cap_key=f'Software\\{manufacturer}\\{product}\\Capabilities'
+        if self.file_associations:
+            capability_nodes.append(f'      <RegistryValue Root="HKLM" Key="{cap_key}" Name="ApplicationName" Type="string" Value="{product}" />')
+            capability_nodes.append(f'      <RegistryValue Root="HKLM" Key="{cap_key}" Name="ApplicationDescription" Type="string" Value="{product}" />')
+            capability_nodes.append(f'      <RegistryValue Root="HKLM" Key="Software\\RegisteredApplications" Name="{product}" Type="string" Value="{cap_key}" />')
+        seen=set()
+        for assoc in self.file_associations:
+            dotted=self._normalize_extension(assoc.get('extension',''))
+            if not dotted or dotted in seen: continue
+            seen.add(dotted); ext=dotted[1:]
+            desc=esc(assoc.get('description','').strip() or self.t('filetype_default_desc',ext=dotted))
+            progid=f'{clean_product}.{ext}.{suffix}'
+            assoc_nodes.append(f'      <ProgId Id="{esc(progid)}" Description="{desc}" Icon="MainExeFile">\n        <Extension Id="{esc(ext)}">\n          <Verb Id="open" Command="Open" TargetFile="MainExeFile" Argument="&quot;%1&quot;" />\n        </Extension>\n      </ProgId>')
+            capability_nodes.append(f'      <RegistryValue Root="HKLM" Key="{cap_key}\\FileAssociations" Name="{esc(dotted)}" Type="string" Value="{esc(progid)}" />')
+        assoc_xml=('\n'+'\n'.join(assoc_nodes+capability_nodes)) if (assoc_nodes or capability_nodes) else ''
+
+        return f"""<?xml version="1.0" encoding="utf-8"?>\n<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">\n  <Package Name="{product}" Manufacturer="{manufacturer}" Version="{version}" UpgradeCode="{upgrade}" Scope="perMachine">\n    <MajorUpgrade DowngradeErrorMessage="A newer version of {product} is already installed." />\n    <MediaTemplate EmbedCab="yes" />\n    <StandardDirectory Id="ProgramFiles6432Folder">\n      <Directory Id="INSTALLFOLDER" Name="{install_dir}" />\n    </StandardDirectory>\n{chr(10).join(std_dirs)}\n    <Component Id="MainExeComponent" Directory="INSTALLFOLDER" Guid="*">\n      <File Id="MainExeFile" Source="{esc(exe_name)}" KeyPath="yes" />{assoc_xml}\n    </Component>\n{chr(10).join(shortcut_nodes)}\n    <Feature Id="MainFeature" Title="{product}" Level="1">\n{chr(10).join('      <ComponentRef Id="'+r+'" />' for r in refs)}\n    </Feature>\n  </Package>\n</Wix>\n"""
 
     def start_build(self):
         if self._building or self._testing_wix or self._installing_wix:
@@ -1011,7 +1191,7 @@ class App(tk.Tk):
         try:
             exe=Path(self.exe_path.get()).resolve(); out=Path(self.out_dir.get()).expanduser().resolve(); out.mkdir(parents=True,exist_ok=True)
             base=safe_filename(self.product_name.get())
-            msi_name=base+'-'+normalize_version(self.version.get())+'.msi'; msi_path=out/msi_name
+            msi_name=self.msi_filename(); msi_path=out/msi_name
             project_path=out/(base+'.wix')
             wix=self.wix_executable or find_wix_executable() or 'wix'
             with tempfile.TemporaryDirectory(prefix='msibuilder_') as tmp:
